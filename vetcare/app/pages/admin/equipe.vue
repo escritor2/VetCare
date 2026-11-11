@@ -73,7 +73,7 @@ async function onRemove(member: StaffMember) {
 </script>
 
 <template>
-  <UContainer class="max-w-4xl pb-12">
+  <UContainer class="pb-12">
     <AppPageHeader
       title="Equipe"
       description="Administradores com acesso ao VetCare. Todos têm o mesmo nível de acesso."

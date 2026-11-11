@@ -1,4 +1,4 @@
-# Pet Vida — verifica o código e publica no Firebase Hosting.
+# VetCare — verifica o código e publica no Firebase Hosting.
 #   push na main  → lint + typecheck + publica no site oficial
 #   pull request  → lint + typecheck + publica numa URL de prévia (expira em 7 dias)
 name: deploy

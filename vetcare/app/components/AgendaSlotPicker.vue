@@ -38,7 +38,7 @@ watch(slots, (list) => {
 </script>
 
 <template>
-  <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+  <div class="grid grid-cols-1 gap-8 md:grid-cols-[auto_1fr]">
     <div class="flex justify-center md:justify-start">
       <UCalendar
         v-model="calendarValue"
@@ -82,7 +82,7 @@ watch(slots, (list) => {
 
         <div
           v-if="pending"
-          class="grid grid-cols-3 gap-2 sm:grid-cols-4"
+          class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6"
         >
           <USkeleton
             v-for="i in 12"
@@ -93,7 +93,7 @@ watch(slots, (list) => {
 
         <div
           v-else
-          class="grid grid-cols-3 gap-2 sm:grid-cols-4"
+          class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6"
         >
           <UButton
             v-for="s in slots"

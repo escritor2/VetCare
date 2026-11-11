@@ -70,7 +70,7 @@ async function onCancel() {
 </script>
 
 <template>
-  <UContainer class="max-w-4xl pb-16">
+  <UContainer class="pb-16">
     <AppPageHeader
       :title="primeiroNome ? `Olá, ${primeiroNome}!` : 'Minha conta'"
       description="Seus agendamentos e seus pets."
@@ -88,140 +88,145 @@ async function onCancel() {
       </template>
     </AppPageHeader>
 
-    <!-- Próximo agendamento -->
-    <section class="mt-8">
-      <h2 class="mb-3 font-semibold text-highlighted">
-        Próximo agendamento
-      </h2>
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_24rem] xl:grid-cols-[1fr_28rem]">
+      <div class="min-w-0 space-y-10">
+        <!-- Próximo agendamento -->
+        <section>
+          <h2 class="mb-3 font-semibold text-highlighted">
+            Próximo agendamento
+          </h2>
 
-      <USkeleton
-        v-if="agPending"
-        class="h-24 w-full"
-      />
-
-      <AgendamentoCard
-        v-else-if="proximo"
-        :agendamento="proximo"
-        show-date
-        cancelable
-        :cancelling="cancelling"
-        @cancel="onCancel"
-      />
-
-      <UCard v-else>
-        <div class="flex flex-col items-center gap-3 py-6 text-center">
-          <span class="flex size-12 items-center justify-center rounded-full bg-primary/10">
-            <UIcon
-              name="i-lucide-calendar-heart"
-              class="size-6 text-primary"
-            />
-          </span>
-          <p class="font-semibold text-highlighted">
-            Nenhum agendamento marcado
-          </p>
-          <UButton
-            to="/agendar"
-            icon="i-lucide-calendar-plus"
-          >
-            Agendar consulta
-          </UButton>
-        </div>
-      </UCard>
-    </section>
-
-    <!-- Pets -->
-    <section class="mt-10">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="font-semibold text-highlighted">
-          Meus pets
-        </h2>
-        <UButton
-          size="sm"
-          variant="soft"
-          icon="i-lucide-plus"
-          @click="openNewPet"
-        >
-          Adicionar pet
-        </UButton>
-      </div>
-
-      <div
-        v-if="petsPending"
-        class="grid gap-4 sm:grid-cols-2"
-      >
-        <USkeleton
-          v-for="i in 2"
-          :key="i"
-          class="h-24"
-        />
-      </div>
-
-      <div
-        v-else-if="pets.length"
-        class="grid gap-4 sm:grid-cols-2"
-      >
-        <button
-          v-for="p in pets"
-          :key="p.id"
-          type="button"
-          class="card-hover flex items-center gap-4 rounded-lg bg-default p-4 text-left ring ring-default"
-          @click="openEditPet(p)"
-        >
-          <PetAvatar
-            :nome="p.nome"
-            :especie="p.especie"
-            :foto="p.foto"
-            size="2xl"
+          <USkeleton
+            v-if="agPending"
+            class="h-24 w-full"
           />
-          <div class="min-w-0 flex-1">
-            <p class="truncate font-semibold text-highlighted">
-              {{ p.nome }}
-            </p>
-            <p class="truncate text-sm text-muted">
-              {{ [p.especie, p.raca, idade(p.nascimento)].filter(Boolean).join(' · ') }}
-            </p>
-            <p
-              v-if="p.observacoes"
-              class="mt-1 truncate text-xs text-muted"
-            >
-              {{ p.observacoes }}
-            </p>
-          </div>
-          <UIcon
-            name="i-lucide-pencil"
-            class="size-4 text-muted"
-          />
-        </button>
-      </div>
 
-      <UCard v-else>
-        <p class="py-4 text-center text-sm text-muted">
-          Cadastre seu pet para agendar consultas.
-        </p>
-      </UCard>
-    </section>
-
-    <!-- Histórico -->
-    <section
-      v-if="historico.length"
-      class="mt-10"
-    >
-      <h2 class="mb-3 font-semibold text-highlighted">
-        Histórico
-      </h2>
-      <ul class="space-y-3">
-        <li
-          v-for="a in historico"
-          :key="a.id"
-          class="opacity-80"
-        >
           <AgendamentoCard
-            :agendamento="a"
+            v-else-if="proximo"
+            :agendamento="proximo"
             show-date
+            cancelable
+            :cancelling="cancelling"
+            @cancel="onCancel"
           />
-        </li>
-      </ul>
-    </section>
+
+          <UCard v-else>
+            <div class="flex flex-col items-center gap-3 py-6 text-center">
+              <span class="flex size-12 items-center justify-center rounded-full bg-primary/10">
+                <UIcon
+                  name="i-lucide-calendar-heart"
+                  class="size-6 text-primary"
+                />
+              </span>
+              <p class="font-semibold text-highlighted">
+                Nenhum agendamento marcado
+              </p>
+              <UButton
+                to="/agendar"
+                icon="i-lucide-calendar-plus"
+              >
+                Agendar consulta
+              </UButton>
+            </div>
+          </UCard>
+        </section>
+
+        <!-- Histórico -->
+        <section
+          v-if="historico.length"
+        >
+          <h2 class="mb-3 font-semibold text-highlighted">
+            Histórico
+          </h2>
+          <ul class="space-y-3">
+            <li
+              v-for="a in historico"
+              :key="a.id"
+              class="opacity-80"
+            >
+              <AgendamentoCard
+                :agendamento="a"
+                show-date
+              />
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <aside class="min-w-0">
+        <!-- Pets -->
+        <section>
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="font-semibold text-highlighted">
+              Meus pets
+            </h2>
+            <UButton
+              size="sm"
+              variant="soft"
+              icon="i-lucide-plus"
+              @click="openNewPet"
+            >
+              Adicionar pet
+            </UButton>
+          </div>
+
+          <div
+            v-if="petsPending"
+            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1"
+          >
+            <USkeleton
+              v-for="i in 2"
+              :key="i"
+              class="h-24"
+            />
+          </div>
+
+          <div
+            v-else-if="pets.length"
+            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1"
+          >
+            <button
+              v-for="p in pets"
+              :key="p.id"
+              type="button"
+              class="card-hover flex items-center gap-4 rounded-lg bg-default p-4 text-left ring ring-default"
+              @click="openEditPet(p)"
+            >
+              <PetAvatar
+                :nome="p.nome"
+                :especie="p.especie"
+                :foto="p.foto"
+                size="2xl"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-semibold text-highlighted">
+                  {{ p.nome }}
+                </p>
+                <p class="truncate text-sm text-muted">
+                  {{ [p.especie, p.raca, idade(p.nascimento)].filter(Boolean).join(' · ') }}
+                </p>
+                <p
+                  v-if="p.observacoes"
+                  class="mt-1 truncate text-xs text-muted"
+                >
+                  {{ p.observacoes }}
+                </p>
+              </div>
+              <UIcon
+                name="i-lucide-pencil"
+                class="size-4 text-muted"
+              />
+            </button>
+          </div>
+
+          <UCard v-else>
+            <p class="py-4 text-center text-sm text-muted">
+              Cadastre seu pet para agendar consultas.
+            </p>
+          </UCard>
+        </section>
+      </aside>
+    </div>
 
     <UModal
       v-model:open="petModal"

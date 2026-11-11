@@ -106,7 +106,7 @@ async function onCancelProximo() {
 </script>
 
 <template>
-  <UContainer class="max-w-4xl pb-16">
+  <UContainer class="pb-16">
     <AppPageHeader
       title="Agendar consulta"
       description="Segunda a sexta, das 8h às 19h. Escolha o serviço, o dia e o horário."

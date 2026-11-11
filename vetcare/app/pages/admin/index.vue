@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { parseDate } from '@internationalized/date'
+import type { DateValue } from '@internationalized/date'
 import type { Agendamento } from '~/composables/useAgenda'
 
 definePageMeta({ access: 'admin' })
@@ -16,19 +18,39 @@ function proximoDiaUtil(iso: string) {
 
 const selectedDate = ref(proximoDiaUtil(todayISO()))
 const isToday = computed(() => selectedDate.value === todayISO())
+const aberto = computed(() => isDiaUtil(selectedDate.value))
+
+const calendarValue = computed({
+  get: () => parseDate(selectedDate.value),
+  set: (v: DateValue | undefined) => {
+    if (v) selectedDate.value = v.toString().slice(0, 10)
+  }
+})
 
 const { agendamentos, pending, error } = useAgendamentosDoDia(selectedDate)
-const { ocupados } = useHorariosOcupados(selectedDate)
 const { total: totalSemana, limiteSemanal, lotada } = useSemana(selectedDate)
 
-const livresHoje = computed(() =>
-  isDiaUtil(selectedDate.value)
-    ? SLOT_TIMES.filter(t => !ocupados.value.has(t) && !isSlotPast(selectedDate.value, t)).length
-    : 0
-)
+const porHorario = computed(() => new Map(agendamentos.value.map(a => [a.time, a])))
 
-function shiftDay(days: number) {
-  selectedDate.value = addDaysISO(selectedDate.value, days)
+const somenteOcupados = ref(false)
+const linhas = computed(() => SLOT_TIMES
+  .map(time => ({
+    time,
+    agendamento: porHorario.value.get(time),
+    passado: isSlotPast(selectedDate.value, time)
+  }))
+  .filter(l => !somenteOcupados.value || l.agendamento))
+
+const livres = computed(() => (aberto.value
+  ? SLOT_TIMES.filter(t => !porHorario.value.has(t) && !isSlotPast(selectedDate.value, t)).length
+  : 0))
+
+/* Novo agendamento */
+const bookingOpen = ref(false)
+const bookingTime = ref('')
+function openBooking(time = '') {
+  bookingTime.value = time
+  bookingOpen.value = true
 }
 
 /* Cancelamento */
@@ -70,171 +92,226 @@ async function onSaveLimite() {
 </script>
 
 <template>
-  <UContainer class="max-w-4xl pb-16">
+  <UContainer class="pb-16">
     <AppPageHeader
       title="Agenda"
       description="Agendamentos da clínica em tempo real."
       icon="i-lucide-calendar-days"
-    />
-
-    <!-- Resumo -->
-    <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <UCard>
-        <p class="text-sm text-muted">
-          Agendamentos no dia
-        </p>
-        <p class="mt-1 text-3xl font-bold text-highlighted">
-          {{ pending ? '–' : agendamentos.length }}
-        </p>
-      </UCard>
-
-      <UCard>
-        <p class="text-sm text-muted">
-          Horários livres no dia
-        </p>
-        <p class="mt-1 text-3xl font-bold text-highlighted">
-          {{ livresHoje }}
-        </p>
-      </UCard>
-
-      <UCard>
-        <div class="flex items-start justify-between">
-          <p class="text-sm text-muted">
-            Semana
-          </p>
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-settings-2"
-            aria-label="Configurar limite semanal"
-            @click="limiteModal = true"
-          />
-        </div>
-        <p class="text-3xl font-bold text-highlighted">
-          {{ totalSemana }}<span class="text-lg font-medium text-muted"> / {{ limiteSemanal ?? '∞' }}</span>
-        </p>
-        <UProgress
-          v-if="limiteSemanal"
-          :model-value="Math.min(totalSemana, limiteSemanal)"
-          :max="limiteSemanal"
-          :color="lotada ? 'error' : 'primary'"
-          size="sm"
-          class="mt-2"
-        />
-        <p
-          v-else
-          class="mt-1 text-xs text-warning"
+    >
+      <template #actions>
+        <UButton
+          icon="i-lucide-calendar-plus"
+          size="lg"
+          @click="openBooking()"
         >
-          Sem limite definido
-        </p>
-      </UCard>
-    </div>
-
-    <!-- Navegação de datas -->
-    <div class="mt-8 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <UButton
-          icon="i-lucide-chevron-left"
-          color="neutral"
-          variant="outline"
-          aria-label="Dia anterior"
-          @click="shiftDay(-1)"
-        />
-        <UInput
-          v-model="selectedDate"
-          type="date"
-        />
-        <UButton
-          icon="i-lucide-chevron-right"
-          color="neutral"
-          variant="outline"
-          aria-label="Próximo dia"
-          @click="shiftDay(1)"
-        />
-        <UButton
-          v-if="!isToday"
-          color="neutral"
-          variant="ghost"
-          @click="selectedDate = todayISO()"
-        >
-          Hoje
+          Novo agendamento
         </UButton>
-      </div>
+      </template>
+    </AppPageHeader>
 
-      <p class="text-sm capitalize text-muted">
-        {{ formatLongDate(selectedDate) }}
-      </p>
-    </div>
+    <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[20rem_1fr] xl:grid-cols-[22rem_1fr]">
+      <!-- Lateral: calendário e números -->
+      <aside class="space-y-4">
+        <UCard :ui="{ body: 'p-3 sm:p-4' }">
+          <UCalendar
+            v-model="calendarValue"
+            :is-date-disabled="(d: DateValue) => !isDiaUtil(d.toString().slice(0, 10))"
+            class="mx-auto"
+          />
+          <UButton
+            v-if="!isToday"
+            block
+            variant="soft"
+            color="neutral"
+            size="sm"
+            class="mt-3"
+            @click="selectedDate = proximoDiaUtil(todayISO())"
+          >
+            Voltar para hoje
+          </UButton>
+        </UCard>
 
-    <UAlert
-      v-if="!isDiaUtil(selectedDate)"
-      class="mt-6"
-      color="neutral"
-      variant="subtle"
-      icon="i-lucide-moon"
-      title="Clínica fechada"
-      description="Não há atendimento aos fins de semana."
-    />
+        <div class="grid grid-cols-3 gap-3 lg:grid-cols-1">
+          <UCard :ui="{ body: 'p-4 sm:p-4' }">
+            <p class="text-xs text-muted sm:text-sm">
+              Agendados no dia
+            </p>
+            <p class="mt-1 text-2xl font-bold text-highlighted sm:text-3xl">
+              {{ pending ? '–' : agendamentos.length }}
+            </p>
+          </UCard>
 
-    <UAlert
-      v-else-if="error"
-      class="mt-6"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-circle-alert"
-      title="Não foi possível carregar a agenda"
-      :description="error.message"
-    />
+          <UCard :ui="{ body: 'p-4 sm:p-4' }">
+            <p class="text-xs text-muted sm:text-sm">
+              Horários livres
+            </p>
+            <p class="mt-1 text-2xl font-bold text-highlighted sm:text-3xl">
+              {{ livres }}
+            </p>
+          </UCard>
 
-    <div
-      v-else-if="pending"
-      class="mt-6 space-y-3"
-    >
-      <USkeleton
-        v-for="i in 3"
-        :key="i"
-        class="h-24 w-full"
-      />
-    </div>
+          <UCard :ui="{ body: 'p-4 sm:p-4' }">
+            <div class="flex items-start justify-between gap-1">
+              <p class="text-xs text-muted sm:text-sm">
+                Semana
+              </p>
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-settings-2"
+                aria-label="Configurar limite semanal"
+                class="-mr-2 -mt-1"
+                @click="limiteModal = true"
+              />
+            </div>
+            <p class="text-2xl font-bold text-highlighted sm:text-3xl">
+              {{ totalSemana }}<span class="text-base font-medium text-muted"> / {{ limiteSemanal ?? '∞' }}</span>
+            </p>
+            <UProgress
+              v-if="limiteSemanal"
+              :model-value="Math.min(totalSemana, limiteSemanal)"
+              :max="limiteSemanal"
+              :color="lotada ? 'error' : 'primary'"
+              size="sm"
+              class="mt-2"
+            />
+            <p
+              v-else
+              class="mt-1 text-xs text-warning"
+            >
+              Sem limite definido
+            </p>
+          </UCard>
+        </div>
+      </aside>
 
-    <ul
-      v-else-if="agendamentos.length"
-      class="mt-6 space-y-3"
-    >
-      <li
-        v-for="a in agendamentos"
-        :key="a.id"
-      >
-        <AgendamentoCard
-          :agendamento="a"
-          show-tutor
-          :cancelable="!isSlotPast(a.date, a.time)"
-          :cancelling="cancellingId === a.id"
-          @cancel="onCancel(a)"
-        />
-      </li>
-    </ul>
+      <!-- Grade do dia -->
+      <section class="min-w-0">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <UButton
+              icon="i-lucide-chevron-left"
+              color="neutral"
+              variant="outline"
+              aria-label="Dia anterior"
+              @click="selectedDate = addDaysISO(selectedDate, -1)"
+            />
+            <h2 class="min-w-48 text-center text-lg font-semibold capitalize text-highlighted">
+              {{ formatLongDate(selectedDate) }}
+            </h2>
+            <UButton
+              icon="i-lucide-chevron-right"
+              color="neutral"
+              variant="outline"
+              aria-label="Próximo dia"
+              @click="selectedDate = addDaysISO(selectedDate, 1)"
+            />
+          </div>
 
-    <UCard
-      v-else
-      class="mt-6"
-    >
-      <div class="flex flex-col items-center py-10 text-center">
-        <div class="flex size-12 items-center justify-center rounded-full bg-elevated">
-          <UIcon
-            name="i-lucide-calendar-x"
-            class="size-6 text-muted"
+          <USwitch
+            v-if="aberto"
+            v-model="somenteOcupados"
+            label="Só ocupados"
           />
         </div>
-        <p class="mt-4 font-semibold text-highlighted">
-          Nenhum agendamento para este dia
-        </p>
-        <p class="mt-1 text-sm text-muted">
-          Os agendamentos feitos pelos clientes aparecem aqui na hora.
-        </p>
-      </div>
-    </UCard>
+
+        <UAlert
+          v-if="lotada && aberto"
+          class="mb-4"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-calendar-x"
+          title="Semana lotada"
+          description="O limite semanal foi atingido. Aumente o limite (engrenagem no card Semana) para liberar novos agendamentos."
+        />
+
+        <UCard v-if="!aberto">
+          <div class="flex flex-col items-center py-12 text-center">
+            <UIcon
+              name="i-lucide-moon"
+              class="size-10 text-muted"
+            />
+            <p class="mt-4 font-semibold text-highlighted">
+              Clínica fechada
+            </p>
+            <p class="mt-1 text-sm text-muted">
+              Não há atendimento aos fins de semana.
+            </p>
+          </div>
+        </UCard>
+
+        <UAlert
+          v-else-if="error"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          title="Não foi possível carregar a agenda"
+          :description="error.message"
+        />
+
+        <div
+          v-else-if="pending"
+          class="space-y-2"
+        >
+          <USkeleton
+            v-for="i in 6"
+            :key="i"
+            class="h-16 w-full"
+          />
+        </div>
+
+        <ul
+          v-else
+          class="grid grid-cols-1 gap-2 2xl:grid-cols-2"
+        >
+          <li
+            v-for="l in linhas"
+            :key="l.time"
+          >
+            <AgendamentoCard
+              v-if="l.agendamento"
+              :agendamento="l.agendamento"
+              show-tutor
+              :cancelable="!l.passado"
+              :cancelling="cancellingId === l.agendamento.id"
+              @cancel="onCancel(l.agendamento)"
+            />
+
+            <div
+              v-else
+              class="flex items-center gap-4 rounded-lg border border-dashed border-default px-4 py-3"
+              :class="l.passado && 'opacity-50'"
+            >
+              <span class="w-16 text-center font-mono text-sm font-semibold text-muted">{{ l.time }}</span>
+              <span class="flex-1 text-sm text-muted">{{ l.passado ? 'Horário encerrado' : 'Livre' }}</span>
+              <UButton
+                v-if="!l.passado && !lotada"
+                size="sm"
+                variant="soft"
+                icon="i-lucide-plus"
+                @click="openBooking(l.time)"
+              >
+                Agendar
+              </UButton>
+            </div>
+          </li>
+
+          <li
+            v-if="!linhas.length"
+            class="rounded-lg border border-dashed border-default py-10 text-center text-sm text-muted"
+          >
+            Nenhum agendamento neste dia.
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <AdminBookingModal
+      v-model:open="bookingOpen"
+      :date="aberto ? selectedDate : proximoDiaUtil(todayISO())"
+      :time="bookingTime"
+    />
 
     <UModal
       v-model:open="limiteModal"

@@ -7,7 +7,7 @@
       />
     </span>
     <span class="text-lg font-extrabold tracking-tight text-highlighted">
-      Pet <span class="text-secondary">Vida</span>
+      Vet<span class="text-secondary">Care</span>
     </span>
   </span>
 </template>

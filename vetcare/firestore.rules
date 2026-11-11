@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Pet Vida — regras de segurança e de negócio do Firestore.
+// VetCare — regras de segurança e de negócio do Firestore.
 // Publicar em: Console do Firebase → Firestore → Regras → colar → Publicar.
 
 service cloud.firestore {

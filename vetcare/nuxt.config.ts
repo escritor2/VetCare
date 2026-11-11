@@ -48,9 +48,9 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'Pet Vida',
-      short_name: 'Pet Vida',
-      description: 'Clínica veterinária Pet Vida — agendamento online.',
+      name: 'VetCare',
+      short_name: 'VetCare',
+      description: 'Clínica veterinária VetCare — agendamento online.',
       lang: 'pt-BR',
       theme_color: '#4F6B43',
       background_color: '#FBF9F6',

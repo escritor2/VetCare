@@ -24,7 +24,7 @@ async function resolveRole(db: Firestore, u: User): Promise<Role | null> {
     if ((await getDoc(doc(db, 'tutores', u.uid))).exists()) return 'cliente'
     return 'incompleto'
   } catch (e) {
-    console.error('[Pet Vida] Não foi possível identificar o perfil', e)
+    console.error('[VetCare] Não foi possível identificar o perfil', e)
     return null
   }
 }
@@ -33,7 +33,7 @@ export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig().public.firebase
 
   if (!config.apiKey || !config.projectId) {
-    throw new Error('[Pet Vida] Configuração do Firebase ausente. Crie o arquivo .env a partir do .env.example.')
+    throw new Error('[VetCare] Configuração do Firebase ausente. Crie o arquivo .env a partir do .env.example.')
   }
 
   const existing = getApps()[0]
