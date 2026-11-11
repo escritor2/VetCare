@@ -56,10 +56,12 @@ service cloud.firestore {
       let p = date.split('-');
       let m = int(p[1]);
       let y = m <= 2 ? int(p[0]) - 1 : int(p[0]);
-      let era = math.floor(y / 400);
+      // Atenção: aqui "/" entre inteiros já arredonda para baixo (valores positivos).
+      // Não usar math.floor: ele devolve float e string() viraria "2919.0".
+      let era = y / 400;
       let yoe = y - era * 400;
-      let doy = math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + int(p[2]) - 1;
-      let doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy;
+      let doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + int(p[2]) - 1;
+      let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
       return era * 146097 + doe - 719468;
     }
 
@@ -69,7 +71,7 @@ service cloud.firestore {
     }
 
     function weekId(date) {
-      return string(math.floor((daysFromCivil(date) + 3) / 7));
+      return string((daysFromCivil(date) + 3) / 7);
     }
 
     // Instante do horário em ms (Brasília = UTC-3)
