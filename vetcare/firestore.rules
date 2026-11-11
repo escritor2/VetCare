@@ -1,0 +1,359 @@
+rules_version = '2';
+
+// Pet Vida — regras de segurança e de negócio do Firestore.
+// Publicar em: Console do Firebase → Firestore → Regras → colar → Publicar.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ================= Helpers ================= */
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function docPath(coll, id) {
+      return /databases/$(database)/documents/$(coll)/$(id);
+    }
+
+    // Admin = cadastrado em /funcionarios/{uid}
+    function isStaff() {
+      return signedIn() && exists(docPath('funcionarios', request.auth.uid));
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isText(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function isDate(v) {
+      return v is string && v.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+
+    function isOptionalDate(v) {
+      return v == '' || isDate(v);
+    }
+
+    function createdNow() {
+      return incoming().criadoPor == request.auth.uid
+        && incoming().criadoEm == request.time
+        && incoming().atualizadoEm == request.time;
+    }
+
+    function updatedNow() {
+      return incoming().criadoPor == resource.data.criadoPor
+        && incoming().criadoEm == resource.data.criadoEm
+        && incoming().atualizadoEm == request.time;
+    }
+
+    /* ================= Datas (mesma conta de app/composables/useAgenda.ts) ================= */
+
+    // Dias desde 1970-01-01 (algoritmo days_from_civil, só aritmética inteira)
+    function daysFromCivil(date) {
+      let p = date.split('-');
+      let m = int(p[1]);
+      let y = m <= 2 ? int(p[0]) - 1 : int(p[0]);
+      let era = math.floor(y / 400);
+      let yoe = y - era * 400;
+      let doy = math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + int(p[2]) - 1;
+      let doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy;
+      return era * 146097 + doe - 719468;
+    }
+
+    // 0 = segunda ... 6 = domingo
+    function weekday(date) {
+      return (daysFromCivil(date) + 3) % 7;
+    }
+
+    function weekId(date) {
+      return string(math.floor((daysFromCivil(date) + 3) / 7));
+    }
+
+    // Instante do horário em ms (Brasília = UTC-3)
+    function slotMillis(date, time) {
+      let t = time.split(':');
+      return (daysFromCivil(date) * 1440 + int(t[0]) * 60 + int(t[1]) + 180) * 60000;
+    }
+
+    function isPastSlot(date, time) {
+      return slotMillis(date, time) <= request.time.toMillis();
+    }
+
+    // Seg–sex, 08:00 a 18:30, de 30 em 30 min, no futuro e até ~60 dias à frente
+    function validSlot(date, time) {
+      let ms = slotMillis(date, time);
+      return isDate(date)
+        && time is string && time.matches('(0[89]|1[0-8]):(00|30)')
+        && weekday(date) < 5
+        && ms > request.time.toMillis()
+        && ms <= request.time.toMillis() + 61 * 86400000;
+    }
+
+    function slotIdOf(date, time) {
+      return date + '_' + time.split(':')[0] + time.split(':')[1];
+    }
+
+    /* ================= Equipe (admins) ================= */
+
+    function validStaff(d) {
+      return d.keys().hasOnly(['nome', 'email', 'papel', 'criadoEm', 'criadoPor'])
+        && isText(d.nome, 1, 80)
+        && isText(d.email, 3, 254)
+        && d.papel == 'admin'
+        && d.criadoPor == request.auth.uid
+        && d.criadoEm == request.time;
+    }
+
+    match /funcionarios/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      allow create: if isStaff() && validStaff(incoming());
+      allow update: if false;
+      allow delete: if isStaff() && request.auth.uid != uid;
+    }
+
+    /* ================= Clientes (tutores) ================= */
+
+    function validTutor(d) {
+      return d.keys().hasOnly([
+          'nome', 'telefone', 'email', 'endereco', 'observacoes',
+          'aceitouTermosEm', 'criadoEm', 'criadoPor', 'atualizadoEm'
+        ])
+        && isText(d.nome, 1, 120)
+        && isText(d.telefone, 1, 30)
+        && isText(d.email, 0, 254)
+        && isText(d.endereco, 0, 300)
+        && isText(d.observacoes, 0, 2000);
+    }
+
+    // Cliente cria o próprio cadastro (id = uid) com aceite da política de privacidade.
+    // Admin pode cadastrar clientes sem conta (id aleatório).
+    match /tutores/{id} {
+      allow read: if signedIn() && (id == request.auth.uid || isStaff());
+      allow create: if signedIn()
+        && validTutor(incoming())
+        && createdNow()
+        && ((id == request.auth.uid && incoming().aceitouTermosEm == request.time) || isStaff());
+      allow update: if signedIn()
+        && (id == request.auth.uid || isStaff())
+        && validTutor(incoming())
+        && updatedNow()
+        && incoming().get('aceitouTermosEm', null) == resource.data.get('aceitouTermosEm', null);
+      allow delete: if false;
+    }
+
+    /* ================= Pets ================= */
+
+    function validPet(d) {
+      return d.keys().hasOnly([
+          'tutorId', 'nome', 'especie', 'raca', 'sexo', 'nascimento', 'observacoes', 'foto',
+          'criadoEm', 'criadoPor', 'atualizadoEm'
+        ])
+        && isText(d.tutorId, 1, 128)
+        && isText(d.nome, 1, 80)
+        && d.especie in ['Cachorro', 'Gato', 'Outro']
+        && isText(d.raca, 0, 80)
+        && d.sexo in ['', 'Macho', 'Fêmea']
+        && isOptionalDate(d.nascimento)
+        && isText(d.observacoes, 0, 2000)
+        && (d.foto == '' || (isText(d.foto, 1, 300000) && d.foto.matches('data:image/jpeg;base64,.*')));
+    }
+
+    function validRegistro(d) {
+      return d.keys().hasOnly(['data', 'tipo', 'descricao', 'criadoEm', 'criadoPor', 'atualizadoEm'])
+        && isDate(d.data)
+        && isText(d.tipo, 1, 40)
+        && isText(d.descricao, 1, 5000);
+    }
+
+    match /pets/{id} {
+      allow read: if signedIn() && (resource.data.tutorId == request.auth.uid || isStaff());
+      allow create: if signedIn()
+        && validPet(incoming())
+        && createdNow()
+        && (incoming().tutorId == request.auth.uid || isStaff())
+        && exists(docPath('tutores', incoming().tutorId));
+      allow update: if signedIn()
+        && (resource.data.tutorId == request.auth.uid || isStaff())
+        && validPet(incoming())
+        && updatedNow()
+        && incoming().tutorId == resource.data.tutorId;
+      allow delete: if false;
+
+      // Prontuário: só a equipe
+      match /prontuario/{registroId} {
+        allow read: if isStaff();
+        allow create: if isStaff() && validRegistro(incoming()) && createdNow();
+        allow update: if isStaff() && validRegistro(incoming()) && updatedNow();
+        allow delete: if false;
+      }
+    }
+
+    /* ================= Agendamentos =================
+       Agendar = 1 gravação em lote (tudo ou nada) com 4 documentos:
+         agendamentos/{slot}  dados (privados)
+         horarios/{slot}      horário ocupado (público, sem dados pessoais)
+         semanas/{semana}     contador semanal (+1)
+         travas/{tutorId}     o agendamento futuro do cliente
+       Garantias:
+         - 2 agendamentos no mesmo horário: impossível (o id é o próprio horário)
+         - limite semanal: o contador não passa de config/agenda.limiteSemanal
+         - 1 agendamento futuro por cliente: a trava só muda se o anterior já passou
+         - seg–sex, 8h–18:30, grade de 30 min, no futuro
+    */
+
+    function validAppointment(d) {
+      return d.keys().hasOnly([
+          'tutorId', 'tutorName', 'phone', 'petId', 'petName', 'species',
+          'serviceType', 'notes', 'date', 'time', 'semana', 'criadoEm', 'criadoPor'
+        ])
+        && isText(d.tutorId, 1, 128)
+        && isText(d.tutorName, 1, 120)
+        && isText(d.phone, 1, 30)
+        && isText(d.petId, 1, 128)
+        && isText(d.petName, 1, 80)
+        && isText(d.species, 1, 30)
+        && d.serviceType in ['Consulta de Rotina', 'Vacinação', 'Retorno', 'Exames']
+        && isText(d.notes, 0, 2000)
+        && validSlot(d.date, d.time)
+        && d.semana == weekId(d.date)
+        && d.criadoPor == request.auth.uid
+        && d.criadoEm == request.time;
+    }
+
+    match /agendamentos/{slot} {
+      allow read: if signedIn() && (resource.data.tutorId == request.auth.uid || isStaff());
+
+      allow create: if signedIn()
+        && validAppointment(incoming())
+        && slot == slotIdOf(incoming().date, incoming().time)
+        && (incoming().tutorId == request.auth.uid || isStaff())
+        && exists(docPath('tutores', incoming().tutorId))
+        && get(docPath('pets', incoming().petId)).data.tutorId == incoming().tutorId
+        && existsAfter(docPath('horarios', slot))
+        && getAfter(docPath('semanas', incoming().semana)).data.ultimoSlot == slot
+        && getAfter(docPath('travas', incoming().tutorId)).data.slot == slot;
+
+      // Remarcar = cancelar + agendar de novo
+      allow update: if false;
+
+      // Cancelar: só futuro, liberando horário, contador e trava no mesmo lote
+      allow delete: if signedIn()
+        && (resource.data.tutorId == request.auth.uid || isStaff())
+        && !isPastSlot(resource.data.date, resource.data.time)
+        && !existsAfter(docPath('horarios', slot))
+        && getAfter(docPath('semanas', resource.data.semana)).data.ultimoSlot == slot
+        && !existsAfter(docPath('travas', resource.data.tutorId));
+    }
+
+    match /horarios/{slot} {
+      allow read: if true;
+      allow create: if signedIn()
+        && incoming().keys().hasOnly(['date', 'time'])
+        && existsAfter(docPath('agendamentos', slot));
+      allow update: if false;
+      allow delete: if signedIn() && !existsAfter(docPath('agendamentos', slot));
+    }
+
+    function withinWeeklyLimit(total) {
+      return !exists(docPath('config', 'agenda'))
+        || total <= get(docPath('config', 'agenda')).data.limiteSemanal;
+    }
+
+    // O slot está sendo agendado neste lote, nesta semana
+    function bookingSlot(semana, slot) {
+      return slot is string
+        && !exists(docPath('agendamentos', slot))
+        && getAfter(docPath('agendamentos', slot)).data.semana == semana;
+    }
+
+    // O slot está sendo cancelado neste lote, nesta semana
+    function cancellingSlot(semana, slot) {
+      return slot is string
+        && get(docPath('agendamentos', slot)).data.semana == semana
+        && !existsAfter(docPath('agendamentos', slot));
+    }
+
+    match /semanas/{semana} {
+      allow read: if true;
+      allow create: if signedIn()
+        && incoming().keys().hasOnly(['total', 'ultimoSlot'])
+        && incoming().total == 1
+        && bookingSlot(semana, incoming().ultimoSlot)
+        && withinWeeklyLimit(1);
+      allow update: if signedIn()
+        && incoming().keys().hasOnly(['total', 'ultimoSlot'])
+        && (
+          (incoming().total == resource.data.total + 1
+            && bookingSlot(semana, incoming().ultimoSlot)
+            && withinWeeklyLimit(incoming().total))
+          || (incoming().total == resource.data.total - 1
+            && cancellingSlot(semana, incoming().ultimoSlot))
+        );
+      allow delete: if false;
+    }
+
+    function validTrava(tutorId, d) {
+      return d.keys().hasOnly(['slot', 'date', 'time'])
+        && d.slot is string
+        && !exists(docPath('agendamentos', d.slot))
+        && getAfter(docPath('agendamentos', d.slot)).data.tutorId == tutorId
+        && getAfter(docPath('agendamentos', d.slot)).data.date == d.date
+        && getAfter(docPath('agendamentos', d.slot)).data.time == d.time;
+    }
+
+    // A trava anterior não vale mais se o horário já passou ou foi cancelado
+    function travaLivre() {
+      return isPastSlot(resource.data.date, resource.data.time)
+        || !exists(docPath('agendamentos', resource.data.slot));
+    }
+
+    match /travas/{tutorId} {
+      allow read: if signedIn() && (tutorId == request.auth.uid || isStaff());
+      allow create: if signedIn()
+        && (tutorId == request.auth.uid || isStaff())
+        && validTrava(tutorId, incoming());
+      allow update: if signedIn()
+        && (tutorId == request.auth.uid || isStaff())
+        && travaLivre()
+        && validTrava(tutorId, incoming());
+      allow delete: if signedIn()
+        && (tutorId == request.auth.uid || isStaff())
+        && (resource == null
+          || isPastSlot(resource.data.date, resource.data.time)
+          || !existsAfter(docPath('agendamentos', resource.data.slot)));
+    }
+
+    // Histórico de cancelamentos (para relatórios)
+    match /cancelamentos/{id} {
+      allow read: if isStaff();
+      allow create: if signedIn()
+        && incoming().keys().hasOnly(['slot', 'date', 'time', 'tutorId', 'petName', 'serviceType', 'canceladoEm', 'canceladoPor'])
+        && incoming().canceladoPor == request.auth.uid
+        && incoming().canceladoEm == request.time
+        && (incoming().tutorId == request.auth.uid || isStaff())
+        && get(docPath('agendamentos', incoming().slot)).data.tutorId == incoming().tutorId
+        && !existsAfter(docPath('agendamentos', incoming().slot));
+      allow update, delete: if false;
+    }
+
+    /* ================= Configuração ================= */
+
+    match /config/agenda {
+      allow read: if true;
+      allow write: if isStaff()
+        && incoming().keys().hasOnly(['limiteSemanal', 'atualizadoEm'])
+        && incoming().limiteSemanal is int
+        && incoming().limiteSemanal >= 1
+        && incoming().limiteSemanal <= 1000
+        && incoming().atualizadoEm == request.time;
+    }
+
+    /* Todo o resto fica bloqueado */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

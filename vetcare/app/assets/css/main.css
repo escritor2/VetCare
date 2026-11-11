@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: 'Nunito', sans-serif;
+
+  /* Verde-sálvia (cor principal) */
+  --color-sage-50: #F4F7F2;
+  --color-sage-100: #E5ECE0;
+  --color-sage-200: #CBD9C2;
+  --color-sage-300: #A8BF9A;
+  --color-sage-400: #84A273;
+  --color-sage-500: #658656;
+  --color-sage-600: #4F6B43;
+  --color-sage-700: #3F5537;
+  --color-sage-800: #34452F;
+  --color-sage-900: #2C3A29;
+  --color-sage-950: #161F14;
+
+  /* Terracota (cor de destaque) */
+  --color-clay-50: #FBF5F1;
+  --color-clay-100: #F5E7DE;
+  --color-clay-200: #EACBBB;
+  --color-clay-300: #DCA78F;
+  --color-clay-400: #CC7F62;
+  --color-clay-500: #BF6445;
+  --color-clay-600: #A8503A;
+  --color-clay-700: #8C4032;
+  --color-clay-800: #72362D;
+  --color-clay-900: #5E2F28;
+  --color-clay-950: #331613;
+}
+
+/* Fundo creme no claro e marrom-escuro no escuro */
+:root {
+  --ui-bg: #FBF9F6;
+  --ui-radius: 0.5rem;
+}
+
+.dark {
+  --ui-bg: var(--color-stone-950);
+}
+
+/* Transição suave entre páginas */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.page-leave-to {
+  opacity: 0;
+}
+
+/* Cartões clicáveis levantam levemente no hover */
+@utility card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.25);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: none;
+  }
+}

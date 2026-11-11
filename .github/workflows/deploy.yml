@@ -1,0 +1,82 @@
+# Pet Vida — verifica o código e publica no Firebase Hosting.
+#   push na main  → lint + typecheck + publica no site oficial
+#   pull request  → lint + typecheck + publica numa URL de prévia (expira em 7 dias)
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Configuração pública do app web do Firebase (não é segredo: vai junto no site).
+# A conta de serviço de deploy fica no segredo FIREBASE_SERVICE_ACCOUNT_VETCARE_AA328.
+env:
+  NUXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDbuBSmcFysz2e6qQGYoN3osGHaSlovf3M
+  NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vetcare-aa328.firebaseapp.com
+  NUXT_PUBLIC_FIREBASE_PROJECT_ID: vetcare-aa328
+  NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vetcare-aa328.firebasestorage.app
+  NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '231391780495'
+  NUXT_PUBLIC_FIREBASE_APP_ID: 1:231391780495:web:4ab46640a7382d57629afa
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    defaults:
+      run:
+        working-directory: vetcare
+
+    # Sem o segredo de deploy (ex.: antes de rodar "firebase init hosting:github"), só verifica e gera o build
+    env:
+      HAS_FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VETCARE_AA328 != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: vetcare/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npx nuxi generate
+
+      - name: Deploy (site oficial)
+        if: github.event_name == 'push' && env.HAS_FIREBASE_SA == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VETCARE_AA328 }}
+          projectId: vetcare-aa328
+          channelId: live
+          entryPoint: vetcare
+
+      - name: Deploy (prévia do pull request)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && env.HAS_FIREBASE_SA == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VETCARE_AA328 }}
+          projectId: vetcare-aa328
+          expires: 7d
+          entryPoint: vetcare
