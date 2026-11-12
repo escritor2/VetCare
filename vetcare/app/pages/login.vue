@@ -15,17 +15,19 @@ const redirect = computed(() => {
 
 const state = reactive({ email: '', password: '' })
 const loading = ref(false)
+const resetting = ref(false)
 const errorMessage = ref('')
 const infoMessage = ref('')
 
 function validate(s: Partial<typeof state>): FormError[] {
   const errors: FormError[] = []
-  if (!s.email?.trim()) errors.push({ name: 'email', message: 'Informe o e-mail' })
+  if (emailError(s.email)) errors.push({ name: 'email', message: emailError(s.email) })
   if (!s.password) errors.push({ name: 'password', message: 'Informe a senha' })
   return errors
 }
 
 function describeError(e: unknown) {
+  if (e instanceof InputValidationError) return e.message
   if (e instanceof FirebaseError) {
     switch (e.code) {
       case 'auth/invalid-credential':
@@ -43,11 +45,12 @@ function describeError(e: unknown) {
 }
 
 async function onSubmit() {
+  if (loading.value || resetting.value) return
   loading.value = true
   errorMessage.value = ''
   infoMessage.value = ''
   try {
-    await login(state.email.trim(), state.password)
+    await login(normalizeEmail(state.email), state.password)
     // Admin sempre cai no painel; cliente volta para onde estava (ex.: agendamento)
     await navigateTo(redirect.value && homePath.value !== '/admin' ? redirect.value : homePath.value)
   } catch (e) {
@@ -58,13 +61,15 @@ async function onSubmit() {
 }
 
 async function onForgotPassword() {
+  if (resetting.value || loading.value) return
   errorMessage.value = ''
   infoMessage.value = ''
-  const email = state.email.trim()
-  if (!email) {
-    errorMessage.value = 'Digite seu e-mail no campo acima e clique de novo em “Esqueci minha senha”.'
+  const email = normalizeEmail(state.email)
+  if (emailError(email)) {
+    errorMessage.value = emailError(email)
     return
   }
+  resetting.value = true
   try {
     await resetPassword(email)
   } catch (e) {
@@ -73,20 +78,23 @@ async function onForgotPassword() {
       return
     }
     // Outros erros: mesma mensagem, para não revelar quais e-mails existem
+  } finally {
+    resetting.value = false
   }
   infoMessage.value = `Se ${email} tiver conta, você vai receber um e-mail para redefinir a senha. Confira também o spam.`
 }
 </script>
 
 <template>
-  <UContainer class="flex min-h-[70vh] items-center justify-center py-12">
-    <UCard class="w-full max-w-sm">
-      <div class="mb-6 flex flex-col items-center text-center">
-        <AppLogo />
-        <h1 class="mt-4 text-xl font-bold text-highlighted">
-          Bem-vindo de volta
+  <AuthPageShell title="Mais perto de quem faz seu coração feliz." description="Consultas, cuidados e histórias de uma vida inteira. Tudo começa com um carinho.">
+    <UCard class="auth-card">
+      <div class="auth-form-heading">
+        <span class="auth-form-icon"><UIcon name="i-lucide-heart-handshake" /></span>
+        <p class="workspace-eyebrow">Bom ter você aqui</p>
+        <h1>
+          Bem-vindo de volta.
         </h1>
-        <p class="mt-1 text-sm text-muted">
+        <p class="text-sm text-muted">
           Entre para agendar e acompanhar seu pet.
         </p>
       </div>
@@ -94,6 +102,7 @@ async function onForgotPassword() {
       <UForm
         :state="state"
         :validate="validate"
+        novalidate
         class="space-y-4"
         @submit="onSubmit"
       >
@@ -101,11 +110,9 @@ async function onForgotPassword() {
           label="E-mail"
           name="email"
         >
-          <UInput
+          <EmailInput
             v-model="state.email"
-            type="email"
             autocomplete="username"
-            icon="i-lucide-mail"
             class="w-full"
           />
         </UFormField>
@@ -114,11 +121,9 @@ async function onForgotPassword() {
           label="Senha"
           name="password"
         >
-          <UInput
+          <PasswordInput
             v-model="state.password"
-            type="password"
             autocomplete="current-password"
-            icon="i-lucide-lock"
             class="w-full"
           />
         </UFormField>
@@ -142,6 +147,7 @@ async function onForgotPassword() {
         <UButton
           type="submit"
           :loading="loading"
+          :disabled="resetting"
           block
         >
           Entrar
@@ -152,6 +158,8 @@ async function onForgotPassword() {
           color="neutral"
           size="sm"
           block
+          :disabled="loading"
+          :loading="resetting"
           @click="onForgotPassword"
         >
           Esqueci minha senha
@@ -170,5 +178,5 @@ async function onForgotPassword() {
         </p>
       </template>
     </UCard>
-  </UContainer>
+  </AuthPageShell>
 </template>

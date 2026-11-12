@@ -5,6 +5,8 @@ import type { TutorInput } from '~/composables/useClientes'
 const props = defineProps<{
   initial?: Partial<TutorInput> | null
   submitLabel?: string
+  emailRequired?: boolean
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,11 +17,12 @@ const emit = defineEmits<{
 const state = reactive(fillFrom(emptyTutor(), props.initial))
 
 function validate(s: Partial<TutorInput>): FormError[] {
-  const errors: FormError[] = []
-  if (!s.nome?.trim()) errors.push({ name: 'nome', message: 'Informe o nome' })
-  if (!s.telefone?.trim()) errors.push({ name: 'telefone', message: 'Informe o telefone' })
-  if (s.email?.trim() && !s.email.includes('@')) errors.push({ name: 'email', message: 'E-mail inválido' })
-  return errors
+  return validateTutorFields(s, props.emailRequired)
+}
+
+function onSubmit() {
+  if (props.saving) return
+  emit('submit', { ...trimStrings({ ...state }), telefone: formatPhone(state.telefone), email: normalizeEmail(state.email) })
 }
 </script>
 
@@ -27,8 +30,9 @@ function validate(s: Partial<TutorInput>): FormError[] {
   <UForm
     :state="state"
     :validate="validate"
+    novalidate
     class="space-y-4"
-    @submit="emit('submit', trimStrings({ ...state }))"
+    @submit="onSubmit"
   >
     <UFormField
       label="Nome do tutor"
@@ -37,6 +41,8 @@ function validate(s: Partial<TutorInput>): FormError[] {
     >
       <UInput
         v-model="state.nome"
+        autocomplete="name"
+        :maxlength="120"
         placeholder="Ex: Maria Silva"
         icon="i-lucide-user"
         class="w-full"
@@ -49,11 +55,8 @@ function validate(s: Partial<TutorInput>): FormError[] {
         name="telefone"
         required
       >
-        <UInput
+        <PhoneInput
           v-model="state.telefone"
-          type="tel"
-          placeholder="(19) 99999-9999"
-          icon="i-lucide-phone"
           class="w-full"
         />
       </UFormField>
@@ -61,12 +64,11 @@ function validate(s: Partial<TutorInput>): FormError[] {
       <UFormField
         label="E-mail"
         name="email"
-        hint="Opcional"
+        :hint="emailRequired ? undefined : 'Opcional'"
+        :required="emailRequired"
       >
-        <UInput
+        <EmailInput
           v-model="state.email"
-          type="email"
-          icon="i-lucide-mail"
           class="w-full"
         />
       </UFormField>
@@ -79,6 +81,8 @@ function validate(s: Partial<TutorInput>): FormError[] {
     >
       <UInput
         v-model="state.endereco"
+        autocomplete="street-address"
+        :maxlength="300"
         placeholder="Rua, número, bairro, cidade"
         icon="i-lucide-map-pin"
         class="w-full"
@@ -92,6 +96,7 @@ function validate(s: Partial<TutorInput>): FormError[] {
     >
       <UTextarea
         v-model="state.observacoes"
+        :maxlength="2000"
         :rows="2"
         class="w-full"
       />
@@ -101,12 +106,14 @@ function validate(s: Partial<TutorInput>): FormError[] {
       <UButton
         variant="soft"
         color="neutral"
+        :disabled="saving"
         @click="emit('cancel')"
       >
         Cancelar
       </UButton>
       <UButton
         type="submit"
+        :loading="saving"
         icon="i-lucide-check"
       >
         {{ submitLabel ?? 'Salvar' }}

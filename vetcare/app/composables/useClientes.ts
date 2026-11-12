@@ -111,9 +111,7 @@ export function idade(nascimento: string) {
 
 /** Link do WhatsApp a partir de um telefone brasileiro */
 export function whatsappLink(telefone: string) {
-  let digits = telefone.replace(/\D/g, '')
-  if (digits.length === 10 || digits.length === 11) digits = `55${digits}`
-  return digits.length >= 12 ? `https://wa.me/${digits}` : ''
+  return isValidPhone(telefone) ? `https://wa.me/55${phoneDigits(telefone)}` : ''
 }
 
 /* ---------- Leitura ---------- */
@@ -177,20 +175,28 @@ export function useClientesActions() {
   })
 
   function createTutor(data: TutorInput) {
+    assertValidFields(validateTutorFields(data))
+    data = { ...trimStrings(data), telefone: formatPhone(data.telefone), email: normalizeEmail(data.email) }
     const ref = doc(collection(db, 'tutores'))
     return { id: ref.id, synced: setDoc(ref, { ...data, ...createMeta() }) }
   }
 
   function updateTutor(id: string, data: TutorInput) {
+    assertValidFields(validateTutorFields(data))
+    data = { ...trimStrings(data), telefone: formatPhone(data.telefone), email: normalizeEmail(data.email) }
     return updateDoc(doc(db, 'tutores', id), { ...data, atualizadoEm: serverTimestamp() })
   }
 
   function createPet(data: PetInput) {
+    assertValidFields(validatePetFields(data, todayISO()))
+    data = trimStrings(data)
     const ref = doc(collection(db, 'pets'))
     return { id: ref.id, synced: setDoc(ref, { ...data, ...createMeta() }) }
   }
 
   function updatePet(id: string, data: PetFields) {
+    assertValidFields(validatePetFields(data, todayISO()))
+    data = trimStrings(data)
     return updateDoc(doc(db, 'pets', id), { ...data, atualizadoEm: serverTimestamp() })
   }
 

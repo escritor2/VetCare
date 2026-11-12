@@ -9,7 +9,7 @@ const minDate = todayISO()
 const maxDate = maxBookingDate()
 
 const calendarValue = computed({
-  get: () => (date.value ? parseDate(date.value) : undefined),
+  get: () => (isValidISODate(date.value) ? parseDate(date.value) : undefined),
   set: (v: DateValue | undefined) => {
     date.value = v ? v.toString().slice(0, 10) : ''
     time.value = ''
@@ -21,12 +21,12 @@ function isDateDisabled(d: DateValue) {
   return !isDiaUtil(iso) || iso < minDate || iso > maxDate
 }
 
-const { ocupados, pending } = useHorariosOcupados(date)
+const { ocupados, pending, error } = useHorariosOcupados(date)
 const { lotada } = useSemana(date)
 
 const slots = computed(() => SLOT_TIMES.map(t => ({
   time: t,
-  disabled: !date.value || lotada.value || ocupados.value.has(t) || isSlotPast(date.value, t)
+  disabled: pending.value || !!error.value || !isValidISODate(date.value) || date.value < minDate || date.value > maxDate || !isDiaUtil(date.value) || lotada.value || ocupados.value.has(t) || isSlotPast(date.value, t)
 })))
 
 const livres = computed(() => slots.value.filter(s => !s.disabled).length)
@@ -80,8 +80,17 @@ watch(slots, (list) => {
           class="mb-3"
         />
 
+        <UAlert
+          v-if="error"
+          title="Não foi possível consultar os horários"
+          :description="dataErrorMessage(error)"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+        />
+
         <div
-          v-if="pending"
+          v-else-if="pending"
           class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6"
         >
           <USkeleton
@@ -105,6 +114,7 @@ watch(slots, (list) => {
             block
             class="font-mono"
             :class="s.disabled && 'line-through'"
+            :aria-pressed="time === s.time"
             @click="time = s.time"
           />
         </div>

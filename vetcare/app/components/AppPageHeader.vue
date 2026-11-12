@@ -5,11 +5,14 @@ defineProps<{
   icon?: string
   back?: string
 }>()
+const { isAdmin } = useAuth()
+const route = useRoute()
+const tone = computed(() => route.path.startsWith('/admin') ? 'lilac' : route.path === '/minha-conta' ? 'pink' : 'blue')
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 border-b border-default py-8 sm:flex-row sm:items-center sm:justify-between">
-    <div class="flex items-start gap-3">
+  <div class="page-banner" :class="`page-banner-${tone}`">
+    <div class="page-banner-content">
       <UButton
         v-if="back"
         :to="back"
@@ -17,11 +20,11 @@ defineProps<{
         variant="ghost"
         color="neutral"
         aria-label="Voltar"
-        class="mt-0.5"
+        class="shrink-0"
       />
       <div
         v-else-if="icon"
-        class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10"
+        class="page-banner-icon"
       >
         <UIcon
           :name="icon"
@@ -30,12 +33,13 @@ defineProps<{
       </div>
 
       <div>
-        <h1 class="text-2xl font-bold text-highlighted">
+        <p class="workspace-eyebrow">{{ isAdmin ? 'Área da equipe · VetCare' : 'Cuidado em cada detalhe' }}</p>
+        <h1>
           {{ title }}
         </h1>
         <p
           v-if="description"
-          class="mt-1 text-sm text-muted"
+          class="page-banner-description"
         >
           {{ description }}
         </p>
@@ -44,9 +48,10 @@ defineProps<{
 
     <div
       v-if="$slots.actions"
-      class="flex flex-wrap gap-2"
+      class="page-banner-actions"
     >
       <slot name="actions" />
     </div>
+    <UIcon name="i-lucide-paw-print" class="page-banner-paw" aria-hidden="true" />
   </div>
 </template>

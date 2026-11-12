@@ -92,7 +92,7 @@ async function onSaveLimite() {
 </script>
 
 <template>
-  <UContainer class="pb-16">
+  <UContainer class="workspace-page admin-page">
     <AppPageHeader
       title="Agenda"
       description="Agendamentos da clínica em tempo real."
@@ -131,7 +131,7 @@ async function onSaveLimite() {
           </UButton>
         </UCard>
 
-        <div class="grid grid-cols-3 gap-3 lg:grid-cols-1">
+        <div class="agenda-stats grid grid-cols-3 gap-3 lg:grid-cols-1">
           <UCard :ui="{ body: 'p-4 sm:p-4' }">
             <p class="text-xs text-muted sm:text-sm">
               Agendados no dia
@@ -197,7 +197,7 @@ async function onSaveLimite() {
               aria-label="Dia anterior"
               @click="selectedDate = addDaysISO(selectedDate, -1)"
             />
-            <h2 class="min-w-48 text-center text-lg font-semibold capitalize text-highlighted">
+            <h2 class="agenda-date-heading text-center text-lg font-semibold capitalize text-highlighted">
               {{ formatLongDate(selectedDate) }}
             </h2>
             <UButton
@@ -247,7 +247,7 @@ async function onSaveLimite() {
           variant="subtle"
           icon="i-lucide-circle-alert"
           title="Não foi possível carregar a agenda"
-          :description="error.message"
+          :description="dataErrorMessage(error)"
         />
 
         <div
@@ -280,7 +280,7 @@ async function onSaveLimite() {
 
             <div
               v-else
-              class="flex items-center gap-4 rounded-lg border border-dashed border-default px-4 py-3"
+              class="empty-agenda-slot flex items-center gap-4 rounded-lg border border-dashed border-default px-4 py-3"
               :class="l.passado && 'opacity-50'"
             >
               <span class="w-16 text-center font-mono text-sm font-semibold text-muted">{{ l.time }}</span>

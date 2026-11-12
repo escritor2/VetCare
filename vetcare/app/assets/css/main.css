@@ -1,8 +1,22 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./landing.css";
+@import "./workspace.css";
 
 @theme static {
   --font-sans: 'Nunito', sans-serif;
+
+  --color-lagoon-50: #edf8f8;
+  --color-lagoon-100: #d7eded;
+  --color-lagoon-200: #b4dddd;
+  --color-lagoon-300: #8ac5c7;
+  --color-lagoon-400: #5da6ac;
+  --color-lagoon-500: #3c8993;
+  --color-lagoon-600: #2b6c79;
+  --color-lagoon-700: #235762;
+  --color-lagoon-800: #204952;
+  --color-lagoon-900: #1d3e47;
+  --color-lagoon-950: #102831;
 
   /* Verde-sálvia (cor principal) */
   --color-sage-50: #F4F7F2;
@@ -33,12 +47,34 @@
 
 /* Fundo creme no claro e marrom-escuro no escuro */
 :root {
-  --ui-bg: #FBF9F6;
-  --ui-radius: 0.5rem;
+  --ui-bg: #fffefa;
+  --ui-bg-muted: #f3f7f6;
+  --ui-bg-elevated: #edf4f3;
+  --ui-border: #dce6e5;
+  --ui-text: #34555d;
+  --ui-text-highlighted: #153f49;
+  --ui-text-muted: #637b80;
+  --ui-primary: var(--color-lagoon-700);
+  --ui-radius: 0.75rem;
+  --surface-blue: #e8f5f8;
+  --surface-pink: #f8e5e8;
+  --surface-lilac: #eee9f8;
+  --surface-sage: #eaf1e4;
 }
 
 .dark {
-  --ui-bg: var(--color-stone-950);
+  --ui-bg: #12232a;
+  --ui-bg-muted: #172d35;
+  --ui-bg-elevated: #1d343d;
+  --ui-border: #2e4a53;
+  --ui-text: #c7d9dd;
+  --ui-text-highlighted: #edf6f6;
+  --ui-text-muted: #a0b8bd;
+  --ui-primary: var(--color-lagoon-300);
+  --surface-blue: #1b3741;
+  --surface-pink: #3b303e;
+  --surface-lilac: #30334b;
+  --surface-sage: #243b34;
 }
 
 /* Transição suave entre páginas */

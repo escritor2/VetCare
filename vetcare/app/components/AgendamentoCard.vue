@@ -17,7 +17,7 @@ const whatsapp = computed(() => whatsappLink(props.agendamento.phone))
 </script>
 
 <template>
-  <UCard :ui="{ body: 'p-4 sm:p-4' }">
+  <UCard class="appointment-card" :ui="{ body: 'p-4 sm:p-4' }">
     <div class="flex items-start gap-4">
       <div class="flex w-16 shrink-0 flex-col items-center rounded-lg bg-primary/10 py-2">
         <UIcon
@@ -68,7 +68,7 @@ const whatsapp = computed(() => whatsappLink(props.agendamento.phone))
             <UIcon
               name="i-simple-icons-whatsapp"
               class="size-4"
-            />{{ agendamento.phone }}
+            />{{ formatPhone(agendamento.phone) }}
           </ULink>
           <span
             v-else
@@ -77,7 +77,7 @@ const whatsapp = computed(() => whatsappLink(props.agendamento.phone))
             <UIcon
               name="i-lucide-phone"
               class="size-4"
-            />{{ agendamento.phone }}
+            />{{ formatPhone(agendamento.phone) }}
           </span>
         </p>
 

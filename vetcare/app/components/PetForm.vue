@@ -5,6 +5,7 @@ import type { PetFields } from '~/composables/useClientes'
 const props = defineProps<{
   initial?: Partial<PetFields> | null
   submitLabel?: string
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,11 +16,7 @@ const emit = defineEmits<{
 const state = reactive(fillFrom(emptyPet(), props.initial))
 
 function validate(s: Partial<PetFields>): FormError[] {
-  const errors: FormError[] = []
-  if (!s.nome?.trim()) errors.push({ name: 'nome', message: 'Informe o nome' })
-  if (!s.especie) errors.push({ name: 'especie', message: 'Selecione a espécie' })
-  if (s.nascimento && s.nascimento > todayISO()) errors.push({ name: 'nascimento', message: 'Data no futuro' })
-  return errors
+  return validatePetFields(s, todayISO())
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -48,8 +45,9 @@ async function onFotoChange(event: Event) {
   <UForm
     :state="state"
     :validate="validate"
+    novalidate
     class="space-y-4"
-    @submit="emit('submit', trimStrings({ ...state }))"
+    @submit="!saving && !fotoLoading && emit('submit', trimStrings({ ...state }))"
   >
     <!-- Foto -->
     <div class="flex items-center gap-4">
@@ -111,6 +109,7 @@ async function onFotoChange(event: Event) {
       >
         <UInput
           v-model="state.nome"
+          :maxlength="80"
           placeholder="Ex: Mel"
           icon="i-lucide-paw-print"
           class="w-full"
@@ -137,6 +136,7 @@ async function onFotoChange(event: Event) {
       >
         <UInput
           v-model="state.raca"
+          :maxlength="80"
           placeholder="Ex: Golden Retriever, SRD"
           class="w-full"
         />
@@ -176,6 +176,7 @@ async function onFotoChange(event: Event) {
     >
       <UTextarea
         v-model="state.observacoes"
+        :maxlength="2000"
         placeholder="Alergias, doenças crônicas, temperamento..."
         :rows="2"
         class="w-full"
@@ -186,12 +187,15 @@ async function onFotoChange(event: Event) {
       <UButton
         variant="soft"
         color="neutral"
+        :disabled="saving || fotoLoading"
         @click="emit('cancel')"
       >
         Cancelar
       </UButton>
       <UButton
         type="submit"
+        :loading="saving"
+        :disabled="fotoLoading"
         icon="i-lucide-check"
       >
         {{ submitLabel ?? 'Salvar' }}

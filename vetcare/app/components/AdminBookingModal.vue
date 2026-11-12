@@ -47,7 +47,7 @@ const petItems = computed(() => pets.value.map(p => ({ label: `${p.nome} (${p.es
 
 const { ocupados } = useHorariosOcupados(() => state.date)
 const timeItems = computed(() => {
-  if (!state.date || !isDiaUtil(state.date)) return []
+  if (!isValidISODate(state.date) || state.date < todayISO() || state.date > maxBookingDate() || !isDiaUtil(state.date)) return []
   return SLOT_TIMES.filter(t => !ocupados.value.has(t) && !isSlotPast(state.date, t))
 })
 watch(timeItems, (list) => {
@@ -58,10 +58,13 @@ function validate(s: typeof state): FormError[] {
   const errors: FormError[] = []
   if (!s.tutorId) errors.push({ name: 'tutorId', message: 'Escolha o cliente' })
   if (!s.petId) errors.push({ name: 'petId', message: 'Escolha o pet' })
-  if (!s.serviceType) errors.push({ name: 'serviceType', message: 'Escolha o serviço' })
+  if (!SERVICE_TYPES.includes(s.serviceType)) errors.push({ name: 'serviceType', message: 'Escolha o serviço' })
   if (!s.date) errors.push({ name: 'date', message: 'Escolha a data' })
+  else if (!isValidISODate(s.date) || s.date < todayISO() || s.date > maxBookingDate()) errors.push({ name: 'date', message: 'Escolha uma data válida nos próximos 60 dias.' })
   else if (!isDiaUtil(s.date)) errors.push({ name: 'date', message: 'A clínica não abre no fim de semana' })
   if (!s.time) errors.push({ name: 'time', message: 'Escolha o horário' })
+  else if (!timeItems.value.includes(s.time)) errors.push({ name: 'time', message: 'Este horário não está mais disponível.' })
+  if (s.notes.length > 2000) errors.push({ name: 'notes', message: 'Use no máximo 2.000 caracteres.' })
   return errors
 }
 
@@ -69,6 +72,7 @@ function validate(s: typeof state): FormError[] {
 const savingSub = ref(false)
 
 async function onNovoCliente(data: TutorInput) {
+  if (savingSub.value) return
   savingSub.value = true
   try {
     const { id, synced } = createTutor(data)
@@ -84,7 +88,7 @@ async function onNovoCliente(data: TutorInput) {
 }
 
 async function onNovoPet(data: PetFields) {
-  if (!state.tutorId) return
+  if (!state.tutorId || savingSub.value) return
   savingSub.value = true
   try {
     const { id, synced } = createPet({ ...data, tutorId: state.tutorId })
@@ -100,7 +104,7 @@ async function onNovoPet(data: PetFields) {
 
 const saving = ref(false)
 async function onSubmit() {
-  if (!tutor.value || !pet.value) return
+  if (!tutor.value || !pet.value || saving.value) return
   saving.value = true
   try {
     await book({
@@ -150,6 +154,7 @@ const title = computed(() => ({
       <TutorForm
         v-if="mode === 'novo-cliente'"
         submit-label="Cadastrar cliente"
+        :saving="savingSub"
         @submit="onNovoCliente"
         @cancel="mode = 'form'"
       />
@@ -157,6 +162,7 @@ const title = computed(() => ({
       <PetForm
         v-else-if="mode === 'novo-pet'"
         submit-label="Cadastrar pet"
+        :saving="savingSub"
         @submit="onNovoPet"
         @cancel="mode = 'form'"
       />
@@ -244,6 +250,7 @@ const title = computed(() => ({
                 v-model="state.date"
                 type="date"
                 :min="todayISO()"
+                :max="maxBookingDate()"
                 class="w-full"
               />
             </UFormField>

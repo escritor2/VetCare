@@ -1,10 +1,20 @@
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'sage',
+      primary: 'lagoon',
       secondary: 'clay',
-      neutral: 'stone'
-    }
+      neutral: 'slate'
+    },
+    button: { slots: { base: 'rounded-full font-bold' } },
+    input: { slots: { base: 'rounded-[12px]' }, defaultVariants: { size: 'lg' } },
+    textarea: { slots: { base: 'rounded-[12px]' }, defaultVariants: { size: 'lg' } },
+    select: { slots: { base: 'rounded-[12px]' }, defaultVariants: { size: 'lg' } },
+    selectMenu: { slots: { base: 'rounded-[12px]' }, defaultVariants: { size: 'lg' } },
+    card: { slots: { root: 'rounded-[24px] shadow-sm', header: 'border-default', footer: 'border-default' } },
+    modal: { slots: { content: 'rounded-[24px]', title: 'font-extrabold tracking-tight' } },
+    formField: { slots: { label: 'font-bold', error: 'leading-relaxed' } },
+    alert: { slots: { root: 'rounded-[16px]' } },
+    calendar: { slots: { root: 'rounded-[18px]', heading: 'font-extrabold' } }
   },
 
   // Dados da clínica exibidos no site.

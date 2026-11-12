@@ -17,13 +17,14 @@ const formError = ref('')
 
 function validate(s: Partial<NewStaff>): FormError[] {
   const errors: FormError[] = []
-  if (!s.nome?.trim()) errors.push({ name: 'nome', message: 'Informe o nome' })
-  if (!s.email?.trim()) errors.push({ name: 'email', message: 'Informe o e-mail' })
-  if (!s.senha || s.senha.length < 8) errors.push({ name: 'senha', message: 'Mínimo de 8 caracteres' })
+  if (nameError(s.nome, 80)) errors.push({ name: 'nome', message: nameError(s.nome, 80) })
+  if (emailError(s.email)) errors.push({ name: 'email', message: emailError(s.email) })
+  if (passwordError(s.senha)) errors.push({ name: 'senha', message: passwordError(s.senha) })
   return errors
 }
 
 function describeError(e: unknown) {
+  if (e instanceof InputValidationError) return e.message
   if (e instanceof FirebaseError) {
     switch (e.code) {
       case 'auth/email-already-in-use':
@@ -42,11 +43,12 @@ function describeError(e: unknown) {
 }
 
 async function onSubmit() {
+  if (saving.value) return
   saving.value = true
   formError.value = ''
   try {
     const nome = state.nome.trim()
-    await addStaff({ nome, email: state.email.trim(), senha: state.senha })
+    await addStaff({ nome, email: normalizeEmail(state.email), senha: state.senha })
     toast.add({
       title: 'Admin cadastrado',
       description: `${nome} já pode entrar com o e-mail e a senha informados.`,
@@ -73,7 +75,7 @@ async function onRemove(member: StaffMember) {
 </script>
 
 <template>
-  <UContainer class="pb-12">
+  <UContainer class="workspace-page team-page">
     <AppPageHeader
       title="Equipe"
       description="Administradores com acesso ao VetCare. Todos têm o mesmo nível de acesso."
@@ -99,7 +101,7 @@ async function onRemove(member: StaffMember) {
           variant="subtle"
           icon="i-lucide-circle-alert"
           title="Não foi possível carregar a equipe"
-          :description="error.message"
+          :description="dataErrorMessage(error)"
         />
 
         <template v-else-if="pending">
@@ -155,7 +157,7 @@ async function onRemove(member: StaffMember) {
 
       <!-- Novo admin -->
       <section class="lg:col-span-2">
-        <UCard>
+        <UCard class="team-create-card">
           <template #header>
             <div class="flex items-center gap-2 font-semibold text-highlighted">
               <UIcon
@@ -169,6 +171,7 @@ async function onRemove(member: StaffMember) {
           <UForm
             :state="state"
             :validate="validate"
+            novalidate
             class="space-y-4"
             @submit="onSubmit"
           >
@@ -178,6 +181,8 @@ async function onRemove(member: StaffMember) {
             >
               <UInput
                 v-model="state.nome"
+                :maxlength="80"
+                autocomplete="name"
                 placeholder="Ex: Dra. Ana Souza"
                 class="w-full"
               />
@@ -187,9 +192,8 @@ async function onRemove(member: StaffMember) {
               label="E-mail"
               name="email"
             >
-              <UInput
+              <EmailInput
                 v-model="state.email"
-                type="email"
                 autocomplete="off"
                 class="w-full"
               />
@@ -200,9 +204,9 @@ async function onRemove(member: StaffMember) {
               name="senha"
               help="Passe para a pessoa; ela pode trocar depois em “Esqueci minha senha”."
             >
-              <UInput
+              <PasswordInput
                 v-model="state.senha"
-                type="password"
+                :maxlength="128"
                 autocomplete="new-password"
                 class="w-full"
               />
