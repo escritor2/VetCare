@@ -31,16 +31,17 @@ export function useAuth() {
   const homePath = computed(() => (role.value === 'admin' ? '/admin' : role.value === 'cliente' ? '/minha-conta' : '/'))
 
   async function login(email: string, password: string) {
-    await signInWithEmailAndPassword($firebase.auth, email, password)
+    assertValidFields(issuesFrom({ email: emailError(email), password: password ? '' : 'Informe a senha.' }))
+    await signInWithEmailAndPassword($firebase.auth, normalizeEmail(email), password)
     await $refreshRole()
   }
 
   /** Cria o perfil de cliente (tutor) com o aceite da política de privacidade */
   async function createClienteProfile(uid: string, data: { nome: string, telefone: string, email: string }) {
     await setDoc(doc($firebase.db, 'tutores', uid), {
-      nome: data.nome,
-      telefone: data.telefone,
-      email: data.email,
+      nome: data.nome.trim(),
+      telefone: formatPhone(data.telefone),
+      email: normalizeEmail(data.email),
       endereco: '',
       observacoes: '',
       aceitouTermosEm: serverTimestamp(),
@@ -52,12 +53,15 @@ export function useAuth() {
   }
 
   async function signupCliente({ nome, telefone, email, senha }: ClienteSignup) {
+    assertValidFields([...validateTutorFields({ nome, telefone, email }, true), ...issuesFrom({ senha: passwordError(senha) })])
+    email = normalizeEmail(email)
     const cred = await createUserWithEmailAndPassword($firebase.auth, email, senha)
     await createClienteProfile(cred.user.uid, { nome, telefone, email })
   }
 
   /** Para quem criou a conta mas não terminou o cadastro */
   async function completeProfile(data: { nome: string, telefone: string }) {
+    assertValidFields(validateTutorFields(data))
     const u = $firebase.auth.currentUser
     if (!u) throw new Error('not-logged-in')
     await createClienteProfile(u.uid, { ...data, email: u.email ?? '' })
@@ -68,7 +72,8 @@ export function useAuth() {
   }
 
   function resetPassword(email: string) {
-    return sendPasswordResetEmail($firebase.auth, email)
+    assertValidFields(issuesFrom({ email: emailError(email) }))
+    return sendPasswordResetEmail($firebase.auth, normalizeEmail(email))
   }
 
   return { user, role, isAdmin, isCliente, homePath, login, signupCliente, completeProfile, logout, resetPassword }

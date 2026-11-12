@@ -62,6 +62,9 @@ export function useStaffActions() {
    * continue logado (criar usuário no SDK web faz login automático nele).
    */
   async function addStaff({ nome, email, senha }: NewStaff) {
+    assertValidFields(issuesFrom({ nome: nameError(nome, 80), email: emailError(email), senha: passwordError(senha) }))
+    nome = nome.trim()
+    email = normalizeEmail(email)
     const secondary = initializeApp($firebase.app.options, `novo-funcionario-${Date.now()}`)
     try {
       const secondaryAuth = initializeAuth(secondary, { persistence: inMemoryPersistence })

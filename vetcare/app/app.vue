@@ -3,6 +3,8 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 import { pt_br } from '@nuxt/ui/locale'
 
 const { clinica } = useAppConfig()
+const route = useRoute()
+const isHome = computed(() => route.path === '/')
 
 useHead({
   meta: [
@@ -36,8 +38,14 @@ const navItems = computed<NavigationMenuItem[]>(() => {
     ]
   }
   const items: NavigationMenuItem[] = [
-    { label: 'Início', icon: 'i-lucide-house', to: '/' },
-    { label: 'Agendar', icon: 'i-lucide-calendar-plus', to: '/agendar' }
+    { label: 'Início', to: '/' },
+    ...(isHome.value
+      ? [
+          { label: 'Nossos cuidados', to: '/#servicos', active: false },
+          { label: 'Como funciona', to: '/#como-funciona', active: false },
+          { label: 'Contato', to: '/#contato', active: false }
+        ]
+      : [{ label: 'Agendar', icon: 'i-lucide-calendar-plus', to: '/agendar' }])
   ]
   if (role.value === 'cliente') {
     items.push({ label: 'Minha conta', icon: 'i-lucide-user', to: '/minha-conta' })
@@ -52,8 +60,8 @@ async function onLogout() {
 </script>
 
 <template>
-  <UApp :locale="pt_br">
-    <UHeader>
+  <UApp :locale="pt_br" :class="{ 'marketing-shell': isHome }">
+    <UHeader class="site-header" :class="{ 'marketing-header': isHome }">
       <template #left>
         <NuxtLink
           to="/"
@@ -66,7 +74,7 @@ async function onLogout() {
       <UNavigationMenu :items="navItems" />
 
       <template #right>
-        <UColorModeButton />
+        <UColorModeButton v-if="!isHome" />
 
         <template v-if="user">
           <UTooltip :text="`Sair (${user.email})`">
@@ -90,10 +98,11 @@ async function onLogout() {
             Entrar
           </UButton>
           <UButton
-            to="/cadastro"
-            class="hidden sm:inline-flex"
+            :to="isHome ? '/agendar' : '/cadastro'"
+            class="header-account-button hidden sm:inline-flex"
+            :trailing-icon="isHome ? 'i-lucide-arrow-up-right' : undefined"
           >
-            Criar conta
+            {{ isHome ? 'Agendar consulta' : 'Criar conta' }}
           </UButton>
         </template>
       </template>
@@ -126,11 +135,20 @@ async function onLogout() {
       </template>
     </UHeader>
 
-    <UMain>
+    <UMain :class="{ 'workspace-main': !isHome }">
       <NuxtPage />
     </UMain>
 
-    <UFooter>
+    <footer v-if="role !== 'admin'" class="marketing-footer" :class="{ 'workspace-footer': !isHome }">
+      <div class="landing-wrap footer-main">
+        <div class="footer-brand"><NuxtLink to="/" aria-label="VetCare — início"><AppLogo /></NuxtLink><p>Cuidado com carinho.<br>Para quem faz parte da família.</p><div class="footer-socials"><a :href="`https://wa.me/${clinica.whatsapp}`" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><UIcon name="i-simple-icons-whatsapp" /></a><a :href="`mailto:${clinica.email}`" aria-label="E-mail"><UIcon name="i-lucide-mail" /></a></div></div>
+        <div class="footer-column"><h2>Explore</h2><NuxtLink to="/#servicos">Nossos cuidados</NuxtLink><NuxtLink to="/#como-funciona">Como agendar</NuxtLink><NuxtLink to="/agendar">Agendar consulta</NuxtLink><NuxtLink :to="user ? '/minha-conta' : '/login'">Minha conta</NuxtLink></div>
+        <div class="footer-column"><h2>Vamos conversar</h2><a :href="`tel:${clinica.telefone.replace(/\D/g, '')}`">{{ clinica.telefone }}</a><a :href="`mailto:${clinica.email}`">{{ clinica.email }}</a><p>{{ clinica.horario }}</p></div>
+        <div class="footer-column"><h2>Esperamos vocês</h2><p>{{ clinica.endereco }}</p><a :href="clinica.mapsUrl" target="_blank" rel="noopener noreferrer" class="footer-map-link">Como chegar<UIcon name="i-lucide-arrow-up-right" /></a></div>
+      </div>
+      <div class="landing-wrap footer-bottom"><p>© {{ new Date().getFullYear() }} {{ clinica.nome }}. Feito para cuidar.</p><NuxtLink to="/privacidade">Política de privacidade</NuxtLink><span>Pequenas patas. Grandes amores. <UIcon name="i-lucide-heart" aria-hidden="true" /></span></div>
+    </footer>
+    <UFooter v-else>
       <template #left>
         <p class="text-sm text-muted">
           {{ clinica.nome }} • © {{ new Date().getFullYear() }} •

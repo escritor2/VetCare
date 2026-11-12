@@ -7,14 +7,14 @@ const { clinica } = useAppConfig()
 </script>
 
 <template>
-  <UContainer class="max-w-3xl pb-16">
+  <UContainer class="workspace-page privacy-page">
     <AppPageHeader
       title="Política de privacidade"
       :description="`Como a ${clinica.nome} trata seus dados, conforme a LGPD (Lei 13.709/2018).`"
       icon="i-lucide-shield"
     />
 
-    <div class="mt-8 space-y-6 text-default [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-highlighted [&_p]:mt-2 [&_p]:text-muted">
+    <div class="privacy-content mt-8 space-y-6 text-default [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-highlighted [&_p]:mt-2 [&_p]:text-muted">
       <section>
         <h2>Quais dados coletamos</h2>
         <p>

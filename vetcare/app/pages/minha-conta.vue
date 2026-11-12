@@ -9,9 +9,10 @@ const report = useSyncReporter()
 const { user } = useAuth()
 const uid = computed(() => user.value?.uid)
 
-const { data: tutor } = useTutor(uid)
-const { pets, pending: petsPending } = usePets(uid)
-const { proximo, historico, pending: agPending } = useMeusAgendamentos(uid)
+const { data: tutor, pending: tutorPending, error: tutorError } = useTutor(uid)
+const { pets, pending: petsPending, error: petsError } = usePets(uid)
+const { proximo, historico, pending: agPending, error: agError } = useMeusAgendamentos(uid)
+const accountError = computed(() => tutorError.value || petsError.value || agError.value)
 const { cancel } = useAgendaActions()
 const { createPet, updatePet, updateTutor } = useClientesActions()
 
@@ -70,7 +71,7 @@ async function onCancel() {
 </script>
 
 <template>
-  <UContainer class="pb-16">
+  <UContainer class="workspace-page account-page">
     <AppPageHeader
       :title="primeiroNome ? `Olá, ${primeiroNome}!` : 'Minha conta'"
       description="Seus agendamentos e seus pets."
@@ -81,6 +82,7 @@ async function onCancel() {
           variant="soft"
           color="neutral"
           icon="i-lucide-user-pen"
+          :disabled="tutorPending || !tutor"
           @click="dadosModal = true"
         >
           Meus dados
@@ -88,7 +90,15 @@ async function onCancel() {
       </template>
     </AppPageHeader>
 
-    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_24rem] xl:grid-cols-[1fr_28rem]">
+    <UAlert v-if="accountError" class="mt-6" title="Não foi possível carregar sua conta" :description="dataErrorMessage(accountError)" color="error" variant="subtle" icon="i-lucide-circle-alert" />
+
+    <div v-if="!accountError" class="account-stats">
+      <div><span class="stat-icon stat-pink"><UIcon name="i-lucide-paw-print" /></span><div><strong>{{ petsPending ? '—' : pets.length }}</strong><p>{{ pets.length === 1 ? 'pet na família' : 'pets na família' }}</p></div></div>
+      <div><span class="stat-icon stat-blue"><UIcon name="i-lucide-calendar-heart" /></span><div><strong>{{ agPending ? '—' : proximo ? '1' : '0' }}</strong><p>consulta marcada</p></div></div>
+      <div><span class="stat-icon stat-lilac"><UIcon name="i-lucide-history" /></span><div><strong>{{ agPending ? '—' : historico.length }}</strong><p>no histórico</p></div></div>
+    </div>
+
+    <div v-if="!accountError" class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_24rem] xl:grid-cols-[1fr_28rem]">
       <div class="min-w-0 space-y-10">
         <!-- Próximo agendamento -->
         <section>
@@ -189,7 +199,7 @@ async function onCancel() {
               v-for="p in pets"
               :key="p.id"
               type="button"
-              class="card-hover flex items-center gap-4 rounded-lg bg-default p-4 text-left ring ring-default"
+              class="pet-summary-card card-hover flex items-center gap-4 rounded-lg bg-default p-4 text-left ring ring-default"
               @click="openEditPet(p)"
             >
               <PetAvatar
@@ -250,6 +260,7 @@ async function onCancel() {
       <template #body>
         <TutorForm
           :initial="tutor"
+          email-required
           @submit="onSaveDados"
           @cancel="dadosModal = false"
         />

@@ -19,6 +19,13 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // Keep the app's icons local, including in the static build and offline.
+  icon: {
+    clientBundle: {
+      scan: true
+    }
+  },
+
   runtimeConfig: {
     public: {
       // Preenchido pelo .env (NUXT_PUBLIC_FIREBASE_*)

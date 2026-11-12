@@ -22,17 +22,16 @@ const errorMessage = ref('')
 
 function validate(s: Partial<typeof state>): FormError[] {
   const errors: FormError[] = []
-  if (!s.nome?.trim()) errors.push({ name: 'nome', message: 'Informe seu nome' })
-  if ((s.telefone?.replace(/\D/g, '').length ?? 0) < 10) errors.push({ name: 'telefone', message: 'Telefone com DDD' })
+  errors.push(...validateTutorFields(s, !completing.value))
   if (!completing.value) {
-    if (!s.email?.trim()) errors.push({ name: 'email', message: 'Informe o e-mail' })
-    if (!s.senha || s.senha.length < 8) errors.push({ name: 'senha', message: 'Mínimo de 8 caracteres' })
+    if (passwordError(s.senha)) errors.push({ name: 'senha', message: passwordError(s.senha) })
   }
   if (!s.aceite) errors.push({ name: 'aceite', message: 'É preciso aceitar para continuar' })
   return errors
 }
 
 function describeError(e: unknown) {
+  if (e instanceof InputValidationError) return e.message
   if (e instanceof FirebaseError) {
     switch (e.code) {
       case 'auth/email-already-in-use':
@@ -49,15 +48,16 @@ function describeError(e: unknown) {
 }
 
 async function onSubmit() {
+  if (loading.value) return
   loading.value = true
   errorMessage.value = ''
   try {
     const nome = state.nome.trim()
-    const telefone = state.telefone.trim()
+    const telefone = formatPhone(state.telefone)
     if (completing.value) {
       await completeProfile({ nome, telefone })
     } else {
-      await signupCliente({ nome, telefone, email: state.email.trim(), senha: state.senha })
+      await signupCliente({ nome, telefone, email: normalizeEmail(state.email), senha: state.senha })
     }
     await navigateTo(redirect.value)
   } catch (e) {
@@ -69,14 +69,15 @@ async function onSubmit() {
 </script>
 
 <template>
-  <UContainer class="flex min-h-[70vh] items-center justify-center py-12">
-    <UCard class="w-full max-w-md">
-      <div class="mb-6 flex flex-col items-center text-center">
-        <AppLogo />
-        <h1 class="mt-4 text-xl font-bold text-highlighted">
+  <AuthPageShell title="Uma conta. Muitos momentos juntos." description="Deixe os cuidados organizados e aproveite o que mais importa: a companhia do seu pet." tone="pink">
+    <UCard class="auth-card">
+      <div class="auth-form-heading">
+        <span class="auth-form-icon"><UIcon name="i-lucide-paw-print" /></span>
+        <p class="workspace-eyebrow">Comece por aqui</p>
+        <h1>
           {{ completing ? 'Complete seu cadastro' : 'Crie sua conta' }}
         </h1>
-        <p class="mt-1 text-sm text-muted">
+        <p class="text-sm text-muted">
           Para agendar consultas e acompanhar seus pets.
         </p>
       </div>
@@ -84,6 +85,7 @@ async function onSubmit() {
       <UForm
         :state="state"
         :validate="validate"
+        novalidate
         class="space-y-4"
         @submit="onSubmit"
       >
@@ -94,6 +96,7 @@ async function onSubmit() {
           <UInput
             v-model="state.nome"
             autocomplete="name"
+            :maxlength="120"
             icon="i-lucide-user"
             class="w-full"
           />
@@ -103,12 +106,8 @@ async function onSubmit() {
           label="Telefone / WhatsApp"
           name="telefone"
         >
-          <UInput
+          <PhoneInput
             v-model="state.telefone"
-            type="tel"
-            autocomplete="tel"
-            placeholder="(19) 99999-9999"
-            icon="i-lucide-phone"
             class="w-full"
           />
         </UFormField>
@@ -118,11 +117,8 @@ async function onSubmit() {
             label="E-mail"
             name="email"
           >
-            <UInput
+            <EmailInput
               v-model="state.email"
-              type="email"
-              autocomplete="email"
-              icon="i-lucide-mail"
               class="w-full"
             />
           </UFormField>
@@ -132,11 +128,10 @@ async function onSubmit() {
             name="senha"
             help="Mínimo de 8 caracteres."
           >
-            <UInput
+            <PasswordInput
               v-model="state.senha"
-              type="password"
               autocomplete="new-password"
-              icon="i-lucide-lock"
+              :maxlength="128"
               class="w-full"
             />
           </UFormField>
@@ -201,5 +196,5 @@ async function onSubmit() {
         </p>
       </template>
     </UCard>
-  </UContainer>
+  </AuthPageShell>
 </template>

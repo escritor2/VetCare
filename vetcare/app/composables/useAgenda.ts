@@ -151,12 +151,12 @@ export const AGENDA_ERROR_MESSAGES: Record<AgendaErrorCode, string> = {
 /** Horários já ocupados num dia (coleção pública, sem dados pessoais) */
 export function useHorariosOcupados(date: MaybeRefOrGetter<string>) {
   const db = useDb()
-  const { data, pending } = useLiveQuery<{ id: string, time: string }>(() => {
+  const { data, pending, error } = useLiveQuery<{ id: string, time: string }>(() => {
     const d = toValue(date)
     return d ? query(collection(db, 'horarios'), where('date', '==', d)) : null
   })
   const ocupados = computed(() => new Set(data.value.map(h => h.time)))
-  return { ocupados, pending }
+  return { ocupados, pending, error }
 }
 
 export function useConfigAgenda() {
@@ -242,9 +242,13 @@ export function useAgendaActions() {
    */
   async function book(input: AgendamentoInput) {
     if (!navigator.onLine) throw new AgendaError('offline')
-    if (!isDiaUtil(input.date) || !SLOT_TIMES.includes(input.time) || isSlotPast(input.date, input.time)) {
+    if (!isValidISODate(input.date) || input.date > maxBookingDate() || !isDiaUtil(input.date) || !SLOT_TIMES.includes(input.time) || isSlotPast(input.date, input.time)) {
       throw new AgendaError('fora-horario')
     }
+    assertValidFields(issuesFrom({
+      serviceType: SERVICE_TYPES.includes(input.serviceType) ? '' : 'Escolha um serviço válido.',
+      notes: input.notes.length > 2000 ? 'Use no máximo 2.000 caracteres nas observações.' : ''
+    }))
 
     const slot = slotId(input.date, input.time)
     const semana = semanaId(input.date)

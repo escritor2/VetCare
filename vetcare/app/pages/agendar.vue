@@ -12,8 +12,8 @@ const q = (k: string) => (typeof route.query[k] === 'string' ? route.query[k] as
 
 const state = reactive({
   serviceType: SERVICE_TYPES.includes(q('servico')) ? q('servico') : '',
-  date: q('data'),
-  time: q('hora'),
+  date: isValidISODate(q('data')) && q('data') >= todayISO() && q('data') <= maxBookingDate() && isDiaUtil(q('data')) ? q('data') : '',
+  time: SLOT_TIMES.includes(q('hora')) ? q('hora') : '',
   petId: '',
   notes: ''
 })
@@ -57,6 +57,7 @@ function onCreatePet(data: PetFields) {
 
 const saving = ref(false)
 async function onConfirm() {
+  if (saving.value || !canConfirm.value) return
   const pet = selectedPet.value
   if (!pet || !tutor.value || !clienteId.value) return
   saving.value = true
@@ -82,7 +83,7 @@ async function onConfirm() {
     await navigateTo('/minha-conta')
   } catch (e) {
     const code = e instanceof AgendaError ? e.code : 'desconhecido'
-    toast.add({ title: 'Não foi possível agendar', description: AGENDA_ERROR_MESSAGES[code], color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({ title: 'Não foi possível agendar', description: e instanceof InputValidationError ? e.message : AGENDA_ERROR_MESSAGES[code], color: 'error', icon: 'i-lucide-circle-alert' })
     if (code === 'ocupado') state.time = ''
   } finally {
     saving.value = false
@@ -106,7 +107,7 @@ async function onCancelProximo() {
 </script>
 
 <template>
-  <UContainer class="pb-16">
+  <UContainer class="workspace-page booking-page">
     <AppPageHeader
       title="Agendar consulta"
       description="Segunda a sexta, das 8h às 19h. Escolha o serviço, o dia e o horário."
@@ -149,18 +150,19 @@ async function onCancelProximo() {
       class="mt-8 space-y-8"
     >
       <!-- 1. Serviço -->
-      <section>
+      <section class="booking-panel">
         <h2 class="mb-3 flex items-center gap-2 font-semibold text-highlighted">
           <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-inverted">1</span>
           Qual serviço?
         </h2>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="booking-service-options grid grid-cols-2 gap-3 md:grid-cols-4">
           <button
             v-for="s in SERVICE_TYPES"
             :key="s"
             type="button"
-            class="card-hover flex flex-col items-center gap-2 rounded-lg p-4 text-center ring transition-colors"
+            class="service-choice card-hover flex flex-col items-center gap-2 rounded-lg p-4 text-center ring transition-colors"
             :class="state.serviceType === s ? 'bg-primary/10 ring-2 ring-primary' : 'bg-default ring-default'"
+            :aria-pressed="state.serviceType === s"
             @click="state.serviceType = s"
           >
             <UIcon
@@ -173,7 +175,7 @@ async function onCancelProximo() {
       </section>
 
       <!-- 2. Dia e horário -->
-      <section>
+      <section class="booking-panel">
         <h2 class="mb-3 flex items-center gap-2 font-semibold text-highlighted">
           <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-inverted">2</span>
           Quando?
@@ -187,7 +189,7 @@ async function onCancelProximo() {
       </section>
 
       <!-- 3. Pet e confirmação -->
-      <section>
+      <section class="booking-panel">
         <h2 class="mb-3 flex items-center gap-2 font-semibold text-highlighted">
           <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-inverted">3</span>
           Para qual pet?
@@ -246,6 +248,7 @@ async function onCancelProximo() {
               type="button"
               class="card-hover flex w-32 flex-col items-center gap-2 rounded-lg p-3 ring"
               :class="state.petId === p.id ? 'bg-primary/10 ring-2 ring-primary' : 'ring-default'"
+              :aria-pressed="state.petId === p.id"
               @click="state.petId = p.id"
             >
               <PetAvatar
